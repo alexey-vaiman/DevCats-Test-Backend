@@ -25,10 +25,15 @@ app.add_exception_handler(CustomException, custom_exception_handler)
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins, modify in production!
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:80",
+        "http://127.0.0.1",
+        "http://localhost:8000",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(public_router.router, prefix="/v1/public")
