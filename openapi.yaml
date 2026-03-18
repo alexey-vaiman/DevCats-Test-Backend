@@ -1,0 +1,597 @@
+openapi: 3.1.0
+
+info:
+  title: Marketplace Prototype API
+  version: 0.1.0
+  description: >
+    API для прототипа маркетплейса: публичный каталог + админка (CRUD) + загрузка изображений в S3 (MinIO).
+
+servers:
+  - url: http://localhost:8000
+    description: Local backend
+
+tags:
+  - name: Public
+  - name: AdminAuth
+  - name: AdminProducts
+  - name: AdminSellers
+  - name: AdminOffers
+
+components:
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          examples: ["validation_error", "not_found", "unauthorized"]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    CurrencyCode:
+      type: string
+      description: ISO-like currency code
+      examples: ["RUB", "USD", "EUR"]
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          description: Price amount (decimal in backend)
+          examples: [1999.90]
+        currency:
+          $ref: "#/components/schemas/CurrencyCode"
+    ProductAttribute:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          examples: ["Color", "Memory"]
+        value:
+          type: string
+          examples: ["Red", "256GB"]
+    Seller:
+      type: object
+      required: [id, name, rating]
+      properties:
+        id:
+          type: string
+          examples: ["b6e6c8d0-0c76-4c34-b0ab-0f5b65f15f90"]
+        name:
+          type: string
+          examples: ["BestSeller LLC"]
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          examples: [4.7]
+    Offer:
+      type: object
+      required: [id, seller, price, delivery_date]
+      properties:
+        id:
+          type: string
+          examples: ["8cf37f2a-30e5-4a61-9f85-5cdb7a8f1f08"]
+        seller:
+          $ref: "#/components/schemas/Seller"
+        price:
+          $ref: "#/components/schemas/Money"
+        delivery_date:
+          type: string
+          format: date
+          description: Nearest delivery date for this offer
+          examples: ["2026-02-27"]
+    ProductListItem:
+      type: object
+      required:
+        - id
+        - name
+        - thumbnail_url
+        - price
+        - stock
+        - nearest_delivery_date
+      properties:
+        id:
+          type: string
+          examples: ["0a7e0d1e-3d3c-4c6c-b7f8-0d12ab3bcb86"]
+        name:
+          type: string
+          examples: ["Wireless Headphones"]
+        thumbnail_url:
+          type: string
+          format: uri
+          examples: ["http://localhost:9000/products/0a7e0d1e-thumb.jpg"]
+        price:
+          $ref: "#/components/schemas/Money"
+        stock:
+          type: integer
+          minimum: 0
+          examples: [15]
+        nearest_delivery_date:
+          type: string
+          format: date
+          examples: ["2026-02-26"]
+    ProductDetails:
+      type: object
+      required:
+        - id
+        - name
+        - image_url
+        - attributes
+        - offers
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductAttribute"
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Offer"
+    AdminLoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          examples: ["admin"]
+        password:
+          type: string
+          examples: ["admin"]
+    AdminLoginResponse:
+      type: object
+      required: [access_token, token_type]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          examples: ["bearer"]
+    AdminProductCreate:
+      type: object
+      required: [name, price, stock]
+      properties:
+        name:
+          type: string
+        price:
+          $ref: "#/components/schemas/Money"
+        stock:
+          type: integer
+          minimum: 0
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductAttribute"
+    AdminProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        price:
+          $ref: "#/components/schemas/Money"
+        stock:
+          type: integer
+          minimum: 0
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductAttribute"
+    AdminProductResponse:
+      type: object
+      required: [id, name, price, stock, image_url, thumbnail_url, attributes]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          $ref: "#/components/schemas/Money"
+        stock:
+          type: integer
+        image_url:
+          type: [string, "null"]
+          format: uri
+        thumbnail_url:
+          type: [string, "null"]
+          format: uri
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductAttribute"
+    AdminSellerCreate:
+      type: object
+      required: [name, rating]
+      properties:
+        name:
+          type: string
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+    AdminSellerResponse:
+      allOf:
+        - $ref: "#/components/schemas/Seller"
+    AdminOfferCreate:
+      type: object
+      required: [seller_id, price, delivery_date]
+      properties:
+        seller_id:
+          type: string
+        price:
+          $ref: "#/components/schemas/Money"
+        delivery_date:
+          type: string
+          format: date
+    AdminOfferUpdate:
+      type: object
+      properties:
+        seller_id:
+          type: string
+        price:
+          $ref: "#/components/schemas/Money"
+        delivery_date:
+          type: string
+          format: date
+    AdminOfferResponse:
+      type: object
+      required: [id, product_id, seller_id, price, delivery_date]
+      properties:
+        id:
+          type: string
+        product_id:
+          type: string
+        seller_id:
+          type: string
+        price:
+          $ref: "#/components/schemas/Money"
+        delivery_date:
+          type: string
+          format: date
+
+paths:
+  /v1/public/products:
+    get:
+      tags: [Public]
+      summary: List products for the main page (pagination for infinite scroll)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Cursor from previous response (if cursor pagination is used)
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            description: Offset (if offset/limit pagination is used)
+      responses:
+        "200":
+          description: Page of products
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProductListItem"
+                  next_cursor:
+                    type: [string, "null"]
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/public/products/{product_id}:
+    get:
+      tags: [Public]
+      summary: Get product details with offers
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: offers_sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [price, delivery_date]
+            default: price
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetails"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/admin/auth/login:
+    post:
+      tags: [AdminAuth]
+      summary: Admin login (returns bearer token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginRequest"
+      responses:
+        "200":
+          description: Token response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/admin/products:
+    get:
+      tags: [AdminProducts]
+      summary: List products (admin)
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Page of admin products
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminProductResponse"
+                  next_cursor:
+                    type: [string, "null"]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [AdminProducts]
+      summary: Create product
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminProductCreate" }
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminProductResponse" }
+  /v1/admin/products/{product_id}:
+    get:
+      tags: [AdminProducts]
+      summary: Get product (admin)
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminProductResponse" }
+        "404":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [AdminProducts]
+      summary: Update product
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminProductUpdate" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminProductResponse" }
+    delete:
+      tags: [AdminProducts]
+      summary: Delete product
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /v1/admin/products/{product_id}/image:
+    post:
+      tags: [AdminProducts]
+      summary: Upload product image to S3 (MinIO)
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Updated product image URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [image_url, thumbnail_url]
+                properties:
+                  image_url:
+                    type: string
+                    format: uri
+                  thumbnail_url:
+                    type: string
+                    format: uri
+  /v1/admin/sellers:
+    get:
+      tags: [AdminSellers]
+      summary: List sellers
+      security: [{ AdminBearerAuth: [] }]
+      responses:
+        "200":
+          description: Sellers list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminSellerResponse" }
+    post:
+      tags: [AdminSellers]
+      summary: Create seller
+      security: [{ AdminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminSellerCreate" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSellerResponse" }
+  /v1/admin/products/{product_id}/offers:
+    get:
+      tags: [AdminOffers]
+      summary: List offers for product
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminOfferResponse" }
+    post:
+      tags: [AdminOffers]
+      summary: Create offer for product
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminOfferCreate" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOfferResponse" }
+  /v1/admin/offers/{offer_id}:
+    put:
+      tags: [AdminOffers]
+      summary: Update offer
+      security: [{ AdminBearerAuth: [] }]
+      parameters:
+        - name: offer_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminOfferUpdate" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOfferResponse" }
+    delete:
+      tags: [AdminOffers]
+      summary: Delete offer
+      security: [{ AdminBearerAuth: [] }]
+      parameters: 
+        - name: offer_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
