@@ -4,7 +4,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_create_and_get_seller(client: AsyncClient):
     # Admin login
-    login_resp = await client.post("/v1/admin/auth/login", json={"username": "admin", "password": "admin"})
+    login_resp = await client.post("/v1/admin/auth/login", json={"username": "admin", "password": "admin123"})
     token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     

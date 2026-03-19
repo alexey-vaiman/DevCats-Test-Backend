@@ -25,16 +25,7 @@ app.add_exception_handler(CustomException, custom_exception_handler)
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://localhost:80",
-        "http://localhost:5173",
-        "http://127.0.0.1",
-        "http://127.0.0.1:5173",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:8001",
-    ],
+    allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -12,6 +12,21 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin123"
+    
+    # CORS
+    BACKEND_CORS_ORIGINS: list[str] = [
+        "http://localhost",
+        "http://localhost:80",
+        "http://localhost:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1",
+        "http://127.0.0.1:80",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:5173",
+    ]
+    
     # S3 (MinIO)
     S3_ENDPOINT_URL: str = "http://localhost:9000"
     S3_ACCESS_KEY: str = "minioadmin"

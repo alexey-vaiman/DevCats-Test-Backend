@@ -13,8 +13,8 @@ class AuthService:
     async def authenticate_admin(req: AdminLoginRequest) -> AdminLoginResponse:
         # Simplistic validation
         print(f"Authenticating: {req.username} / {req.password}")
-        if req.username != ADMIN_USERNAME_ENV or req.password != ADMIN_PASSWORD_ENV:
-            print(f"Auth failed: expected {ADMIN_USERNAME_ENV}/{ADMIN_PASSWORD_ENV}")
+        if req.username != settings.ADMIN_USERNAME or req.password != settings.ADMIN_PASSWORD:
+            print(f"Auth failed: expected {settings.ADMIN_USERNAME}/{settings.ADMIN_PASSWORD}")
             raise UnauthorizedException("Incorrect username or password")
         
         access_token = create_access_token(subject=req.username)
