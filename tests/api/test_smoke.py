@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient
+from app.core.config import settings
 
 @pytest.mark.asyncio
 async def test_smoke_product_listing(client: AsyncClient):
@@ -15,7 +16,7 @@ async def test_smoke_admin_login(client: AsyncClient):
     """Ensure admin can log in with default credentials."""
     response = await client.post(
         "/v1/admin/auth/login", 
-        json={"username": "admin", "password": "admin123"}
+        json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD}
     )
     assert response.status_code == 200
     data = response.json()

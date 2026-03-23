@@ -1,10 +1,11 @@
 import pytest
 from httpx import AsyncClient
+from app.core.config import settings
 
 @pytest.mark.asyncio
 async def test_create_and_get_seller(client: AsyncClient):
     # Admin login
-    login_resp = await client.post("/v1/admin/auth/login", json={"username": "admin", "password": "admin123"})
+    login_resp = await client.post("/v1/admin/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
     token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
@@ -29,7 +30,7 @@ async def test_create_and_get_seller(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_product_and_offer(client: AsyncClient):
     # Login
-    login_resp = await client.post("/v1/admin/auth/login", json={"username": "admin", "password": "admin123"})
+    login_resp = await client.post("/v1/admin/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
     headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
 
     # Create a seller first
@@ -76,5 +77,11 @@ async def test_create_product_and_offer(client: AsyncClient):
     assert public_detail.status_code == 200
     detail_data = public_detail.json()
     assert detail_data["name"] == "Test Smartphone"
-    assert len(detail_data["offers"]) == 1
-    assert detail_data["offers"][0]["price"]["amount"] == 490.0
+    assert "offers" not in detail_data
+    
+    # Offers check
+    offers_resp = await client.get(f"/v1/public/products/{product_id}/offers")
+    assert offers_resp.status_code == 200
+    offers_data = offers_resp.json()
+    assert len(offers_data) == 1
+    assert offers_data[0]["price"]["amount"] == 490.0

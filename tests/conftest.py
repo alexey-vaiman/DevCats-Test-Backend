@@ -10,12 +10,16 @@ from main import app
 
 from unittest.mock import patch, MagicMock
 
-# Use an in-memory SQLite database for testing (async)
-# Note: SQLite doesn't support UUIDs natively the way Postgres does, 
-# so we might see slight differences, but it works for basic endpoint tests.
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Use a separate test PostgreSQL database to match production behavior.
+# Ensure that this database exists (e.g., CREATE DATABASE marketplace_test;)
+test_db_url = str(settings.DATABASE_URL)
+if test_db_url.endswith("/marketplace"):
+    TEST_DATABASE_URL = test_db_url.replace("/marketplace", "/marketplace_test")
+else:
+    TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/marketplace_test"
 
-engine_test = create_async_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+from sqlalchemy.pool import NullPool
+engine_test = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
 TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine_test, class_=AsyncSession, expire_on_commit=False)
 
 @pytest_asyncio.fixture(autouse=True)
