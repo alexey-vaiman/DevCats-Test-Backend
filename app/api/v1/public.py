@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query
 from app.api.deps import SessionDep
 from app.schemas.product import ProductListItem, ProductDetails
 from app.schemas.common import PaginatedResponse
-from app.services.product_service import product_service
+from app.services.product_service import product_query
 
 router = APIRouter()
 
@@ -18,7 +18,7 @@ async def list_public_products(
     search: Optional[str] = Query(None, description="Search by product name"),
 ):
     """List products for the main page (pagination for infinite scroll)"""
-    return await product_service.get_public_products(db, limit=limit, cursor=cursor, offset=offset, search=search)
+    return await product_query.get_public_products(db, limit=limit, cursor=cursor, offset=offset, search=search)
 
 @router.get("/products/{product_id}", response_model=ProductDetails)
 async def get_public_product(
@@ -27,4 +27,4 @@ async def get_public_product(
     offers_sort: Literal["price", "delivery_date"] = Query("price"),
 ):
     """Get product details with offers"""
-    return await product_service.get_public_product_details(db, product_id, offers_sort=offers_sort)
+    return await product_query.get_public_product_details(db, product_id, offers_sort=offers_sort)

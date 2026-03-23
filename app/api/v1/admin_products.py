@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, UploadFile, File, Response, status
 from app.api.deps import SessionDep, AdminDep
 from app.schemas.product import AdminProductCreate, AdminProductUpdate, AdminProductResponse
 from app.schemas.common import PaginatedResponse
-from app.services.product_service import product_service
+from app.services.product_service import product_query, product_command
 from app.services.s3_service import s3_service
 
 router = APIRouter(prefix="/products", tags=["AdminProducts"])
@@ -18,7 +18,7 @@ async def list_admin_products(
     cursor: Optional[str] = Query(None),
     search: Optional[str] = Query(None)
 ):
-    return await product_service.admin_get_products(db, limit=limit, cursor=cursor, search=search)
+    return await product_query.admin_get_products(db, limit=limit, cursor=cursor, search=search)
 
 @router.post("", response_model=AdminProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
@@ -26,7 +26,7 @@ async def create_product(
     db: SessionDep,
     _admin: AdminDep
 ):
-    return await product_service.admin_create_product(db, product_in)
+    return await product_command.admin_create_product(db, product_in)
 
 @router.get("/{product_id}", response_model=AdminProductResponse)
 async def get_product(
@@ -34,7 +34,7 @@ async def get_product(
     db: SessionDep,
     _admin: AdminDep
 ):
-    return await product_service.admin_get_product(db, product_id)
+    return await product_query.admin_get_product(db, product_id)
 
 @router.put("/{product_id}", response_model=AdminProductResponse)
 async def update_product(
@@ -43,7 +43,7 @@ async def update_product(
     db: SessionDep,
     _admin: AdminDep
 ):
-    return await product_service.admin_update_product(db, product_id, product_in)
+    return await product_command.admin_update_product(db, product_id, product_in)
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(
@@ -51,7 +51,7 @@ async def delete_product(
     db: SessionDep,
     _admin: AdminDep
 ):
-    await product_service.admin_delete_product(db, product_id)
+    await product_command.admin_delete_product(db, product_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 import io
@@ -102,6 +102,6 @@ async def upload_product_image(
         logger.error(f"Thumbnail generation failed: {e}", exc_info=True)
         thumb_url = original_url # Fallback to original if processing fails
     
-    product = await product_service.admin_update_product_images(db, product_id, original_url, thumb_url)
+    product = await product_command.admin_update_product_images(db, product_id, original_url, thumb_url)
     
     return {"image_url": product.image_url, "thumbnail_url": product.thumbnail_url}
