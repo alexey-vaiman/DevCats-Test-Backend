@@ -7,14 +7,14 @@ from sqlalchemy.orm import selectinload
 from app.models.offer import Offer
 from app.schemas.offer import AdminOfferCreate, AdminOfferUpdate
 from app.core.exceptions import NotFoundException
-from app.services.product_service import product_service
+from app.services.product_service import product_query
 from app.services.seller_service import seller_service
 
 class OfferService:
     @staticmethod
     async def get_offers_by_product(db: AsyncSession, product_id: uuid.UUID) -> List[Offer]:
         # ensure product exists
-        await product_service.admin_get_product(db, product_id)
+        await product_query.admin_get_product(db, product_id)
         
         stmt = select(Offer).where(Offer.product_id == product_id).order_by(Offer.price_amount)
         result = await db.execute(stmt)
@@ -23,7 +23,7 @@ class OfferService:
     @staticmethod
     async def create_offer(db: AsyncSession, product_id: uuid.UUID, offer_in: AdminOfferCreate) -> Offer:
         # ensure product and seller exist
-        await product_service.admin_get_product(db, product_id)
+        await product_query.admin_get_product(db, product_id)
         await seller_service.get_seller_by_id(db, offer_in.seller_id)
         
         offer = Offer(

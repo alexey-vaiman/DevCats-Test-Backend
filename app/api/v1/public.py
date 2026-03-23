@@ -24,7 +24,16 @@ async def list_public_products(
 async def get_public_product(
     product_id: uuid.UUID,
     db: SessionDep,
+):
+    """Get product details"""
+    return await product_query.get_public_product_details(db, product_id)
+
+from app.schemas.offer import Offer as OfferSchema
+@router.get("/products/{product_id}/offers", response_model=list[OfferSchema])
+async def get_public_product_offers(
+    product_id: uuid.UUID,
+    db: SessionDep,
     offers_sort: Literal["price", "delivery_date"] = Query("price"),
 ):
-    """Get product details with offers"""
-    return await product_query.get_public_product_details(db, product_id, offers_sort=offers_sort)
+    """Get product offers sorted"""
+    return await product_query.get_product_offers(db, product_id, offers_sort=offers_sort)

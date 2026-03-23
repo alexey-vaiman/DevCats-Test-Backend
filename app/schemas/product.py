@@ -25,7 +25,6 @@ class ProductDetails(BaseModel):
     image_url: str | None = None
     stock: int
     attributes: list[ProductAttribute] = []
-    offers: list[Offer] = []
 
     class Config:
         from_attributes = True

@@ -1,7 +1,9 @@
 import uuid
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+import base64
+from datetime import datetime
+from sqlalchemy import select, func, or_, and_
 from sqlalchemy.orm import selectinload
 
 from app.models.product import Product, ProductAttribute
@@ -10,13 +12,26 @@ from app.schemas.product import AdminProductCreate, AdminProductUpdate, ProductL
 from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundException
 
+def _decode_cursor(cursor: Optional[str]):
+    if not cursor: return None, None
+    try:
+        dec = base64.b64decode(cursor).decode('utf-8')
+        ts, uid = dec.split('|')
+        return datetime.fromisoformat(ts), uid
+    except:
+        return None, None
+
+def _encode_cursor(dt, uid) -> str:
+    if not dt or not uid: return None
+    return base64.b64encode(f"{dt.isoformat()}|{uid}".encode('utf-8')).decode('utf-8')
+
 class ProductQueryService:
     @staticmethod
     async def get_public_products(
         db: AsyncSession, limit: int = 20, cursor: Optional[str] = None, offset: Optional[int] = 0, search: Optional[str] = None
     ) -> PaginatedResponse[ProductListItem]:
         
-        current_offset = int(cursor) if cursor else offset or 0
+        cursor_dt, cursor_id = _decode_cursor(cursor)
 
         # Subquery to find the nearest delivery date exclusively within SQL
         subq = (
@@ -28,13 +43,21 @@ class ProductQueryService:
         stmt = (
             select(Product, subq.c.nearest_date)
             .outerjoin(subq, Product.id == subq.c.product_id)
-            .order_by(Product.created_at.desc())
+            .order_by(Product.created_at.desc(), Product.id.desc())
         )
+
+        if cursor_dt and cursor_id:
+            stmt = stmt.where(
+                or_(
+                    Product.created_at < cursor_dt,
+                    and_(Product.created_at == cursor_dt, Product.id < str(cursor_id))
+                )
+            )
 
         if search:
             stmt = stmt.where(Product.name.ilike(f"%{search}%"))
 
-        stmt = stmt.offset(current_offset).limit(limit)
+        stmt = stmt.limit(limit)
         
         result = await db.execute(stmt)
         rows = result.all()
@@ -50,16 +73,16 @@ class ProductQueryService:
                 nearest_delivery_date=nearest_date
             ))
             
-        next_cursor = str(current_offset + limit) if len(items) == limit else None
+        next_cursor = _encode_cursor(rows[-1][0].created_at, rows[-1][0].id) if len(items) == limit else None
         return PaginatedResponse(items=items, next_cursor=next_cursor)
 
     @staticmethod
     async def get_public_product_details(
-        db: AsyncSession, product_id: uuid.UUID, offers_sort: str = "price"
+        db: AsyncSession, product_id: uuid.UUID
     ) -> ProductDetails:
         stmt = (
             select(Product)
-            .options(selectinload(Product.attributes), selectinload(Product.offers).selectinload(Offer.seller))
+            .options(selectinload(Product.attributes))
             .where(Product.id == product_id)
         )
         result = await db.execute(stmt)
@@ -68,32 +91,49 @@ class ProductQueryService:
         if not product:
             raise NotFoundException(f"Product with id {product_id} not found")
             
-        if offers_sort == "price":
-            product.offers.sort(key=lambda o: float(o.price_amount))
-        elif offers_sort == "delivery_date":
-            product.offers.sort(key=lambda o: o.delivery_date)
-            
         return ProductDetails.model_validate(product)
+
+    @staticmethod
+    async def get_product_offers(
+        db: AsyncSession, product_id: uuid.UUID, offers_sort: str = "price"
+    ):
+        stmt = select(Offer).options(selectinload(Offer.seller)).where(Offer.product_id == product_id)
+        if offers_sort == "price":
+            stmt = stmt.order_by(Offer.price_amount.asc())
+        elif offers_sort == "delivery_date":
+            stmt = stmt.order_by(Offer.delivery_date.asc())
+            
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
 
     @staticmethod
     async def admin_get_products(
         db: AsyncSession, limit: int = 50, cursor: Optional[str] = None, search: Optional[str] = None
     ):
-        current_offset = int(cursor) if cursor else 0
+        cursor_dt, cursor_id = _decode_cursor(cursor)
+        
         stmt = (
             select(Product)
             .options(selectinload(Product.attributes))
-            .order_by(Product.created_at.desc())
+            .order_by(Product.created_at.desc(), Product.id.desc())
         )
+
+        if cursor_dt and cursor_id:
+            stmt = stmt.where(
+                or_(
+                    Product.created_at < cursor_dt,
+                    and_(Product.created_at == cursor_dt, Product.id < str(cursor_id))
+                )
+            )
 
         if search:
             stmt = stmt.where(Product.name.ilike(f"%{search}%"))
 
-        stmt = stmt.offset(current_offset).limit(limit)
+        stmt = stmt.limit(limit)
         
         result = await db.execute(stmt)
         products = result.scalars().all()
-        next_cursor = str(current_offset + limit) if len(products) == limit else None
+        next_cursor = _encode_cursor(products[-1].created_at, products[-1].id) if len(products) == limit else None
         return {"items": products, "next_cursor": next_cursor}
 
     @staticmethod
@@ -171,16 +211,3 @@ class ProductCommandService:
 
 product_query = ProductQueryService()
 product_command = ProductCommandService()
-
-# For backwards compatibility with routers before we refactor them
-class _LegacyProductService:
-    get_public_products = ProductQueryService.get_public_products
-    get_public_product_details = ProductQueryService.get_public_product_details
-    admin_get_products = ProductQueryService.admin_get_products
-    admin_get_product = ProductQueryService.admin_get_product
-    admin_create_product = ProductCommandService.admin_create_product
-    admin_update_product = ProductCommandService.admin_update_product
-    admin_delete_product = ProductCommandService.admin_delete_product
-    admin_update_product_images = ProductCommandService.admin_update_product_images
-
-product_service = _LegacyProductService()
