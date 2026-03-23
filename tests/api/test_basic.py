@@ -20,7 +20,7 @@ async def test_public_products_empty(client: AsyncClient):
 async def test_admin_login(client: AsyncClient):
     response = await client.post("/v1/admin/auth/login", json={
         "username": "admin",
-        "password": "admin"
+        "password": "admin123"
     })
     assert response.status_code == 200
     data = response.json()

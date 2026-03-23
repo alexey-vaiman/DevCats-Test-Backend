@@ -1,7 +1,15 @@
+import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+
+# Configure logging to show INFO level messages in the console
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:     %(message)s (%(name)s)"
+)
+
 from app.core.exceptions import CustomException, custom_exception_handler
 from app.api.v1 import (
     public as public_router,

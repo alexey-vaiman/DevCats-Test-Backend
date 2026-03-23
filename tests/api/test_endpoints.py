@@ -29,7 +29,7 @@ async def test_create_and_get_seller(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_product_and_offer(client: AsyncClient):
     # Login
-    login_resp = await client.post("/v1/admin/auth/login", json={"username": "admin", "password": "admin"})
+    login_resp = await client.post("/v1/admin/auth/login", json={"username": "admin", "password": "admin123"})
     headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
 
     # Create a seller first

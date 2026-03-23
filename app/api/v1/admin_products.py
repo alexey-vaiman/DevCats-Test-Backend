@@ -55,7 +55,22 @@ async def delete_product(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 import io
+import logging
 from PIL import Image
+from fastapi.concurrency import run_in_threadpool
+
+logger = logging.getLogger(__name__)
+
+def _process_thumbnail(file_bytes: bytes) -> bytes:
+    img = Image.open(io.BytesIO(file_bytes))
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    
+    img.thumbnail((200, 200)) # Maintain aspect ratio
+    
+    thumb_io = io.BytesIO()
+    img.save(thumb_io, format="JPEG", quality=85)
+    return thumb_io.getvalue()
 
 @router.post("/{product_id}/image")
 async def upload_product_image(
@@ -66,29 +81,25 @@ async def upload_product_image(
 ):
     file_bytes = await file.read()
     
-    # Upload original
-    original_url = s3_service.upload_file(file_bytes, file.filename, content_type=file.content_type)
+    logger.info(f"Uploading original image '{file.filename}' for product {product_id}...")
+    # Upload original asynchronously
+    original_url = await s3_service.upload_file(file_bytes, file.filename, content_type=file.content_type)
+    logger.info(f"Original image uploaded successfully: {original_url}")
     
-    # Generate thumbnail
+    # Generate thumbnail without blocking the event loop
     try:
-        img = Image.open(io.BytesIO(file_bytes))
-        # Convert to RGB if necessary (e.g. for PNG with alpha to JPEG, though we keep original format if possible)
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        
-        img.thumbnail((200, 200)) # Maintain aspect ratio
-        
-        thumb_io = io.BytesIO()
-        img.save(thumb_io, format="JPEG", quality=85)
-        thumb_bytes = thumb_io.getvalue()
+        logger.info(f"Generating thumbnail for '{file.filename}'...")
+        thumb_bytes = await run_in_threadpool(_process_thumbnail, file_bytes)
         
         # Determine thumbnail filename
-        ext = file.filename.split('.')[-1]
         thumb_filename = f"thumb_{file.filename}"
         
-        thumb_url = s3_service.upload_file(thumb_bytes, thumb_filename, content_type="image/jpeg")
+        logger.info(f"Uploading thumbnail '{thumb_filename}'...")
+        # Upload thumbnail asynchronously
+        thumb_url = await s3_service.upload_file(thumb_bytes, thumb_filename, content_type="image/jpeg")
+        logger.info(f"Thumbnail uploaded successfully: {thumb_url}")
     except Exception as e:
-        print(f"Thumbnail generation failed: {e}")
+        logger.error(f"Thumbnail generation failed: {e}", exc_info=True)
         thumb_url = original_url # Fallback to original if processing fails
     
     product = await product_service.admin_update_product_images(db, product_id, original_url, thumb_url)
