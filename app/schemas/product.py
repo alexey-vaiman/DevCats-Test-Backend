@@ -23,6 +23,7 @@ class ProductDetails(BaseModel):
     id: UUID
     name: str
     image_url: str | None = None
+    stock: int
     attributes: list[ProductAttribute] = []
     offers: list[Offer] = []
 
