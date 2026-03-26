@@ -1,5 +1,5 @@
-# Use Python 3.12 as specified in permanent-context.md
-FROM python:3.12-slim
+# Use Python 3.13 as requested
+FROM python:3.13-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
