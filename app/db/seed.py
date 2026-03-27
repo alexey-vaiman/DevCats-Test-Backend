@@ -38,8 +38,8 @@ async def seed_data():
                 price_amount=Decimal(random.randint(100, 2000)),
                 price_currency="USD",
                 stock=random.randint(5, 500),
-                image_url=f"https://picsum.photos/seed/product_{i}/800/800",
-                thumbnail_url=f"https://picsum.photos/seed/product_{i}/200/200",
+                image_object_key=f"https://picsum.photos/seed/product_{i}/800/800",
+                thumbnail_object_key=f"https://picsum.photos/seed/product_{i}/200/200",
                 attributes=[
                     ProductAttribute(key="Category", value=category),
                     ProductAttribute(key="Brand", value=brand),
